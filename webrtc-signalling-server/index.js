@@ -38,7 +38,18 @@ IO.on("connection", (socket) => {
       sdpAnswer: sdpAnswer,
     });
   });
-
+  socket.on("leaveCall", (data) => {
+    if (data.callerId) {
+      // Handle outgoing call
+      // Notify the callee that the call has ended
+      socket.to(data.callerId).emit("callEnded");
+    } else if (data.calleeId) {
+      // Handle incoming call
+      // Notify the caller that the call has ended
+      socket.to(data.calleeId).emit("callEnded");
+    }
+  });
+  
   socket.on("IceCandidate", (data) => {
     let calleeId = data.calleeId;
     let iceCandidate = data.iceCandidate;

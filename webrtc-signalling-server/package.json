@@ -4,13 +4,18 @@
   "description": "WebRTC Signalling Server",
   "main": "index.js",
   "scripts": {
-    "start": "node index.js"
+    "start": "node index.js",
+    "build": "netlify deploy --prod"
+     
   },
   "keywords": ["webrtc", "nodejs", "socket.io", "signalling"],
-  "author": "Yash Chudasama",
+  "author": "",
   "license": "ISC",
   "dependencies": {
     "express": "^4.18.2",
-    "socket.io": "^4.6.0"
+    "socket.io": "^4.6.0",
+    "netlify-cli" : "17.23.5",
+    "netlify-lambda": "2.0.16",
+    "serverless-http": "3.2.0" 
   }
 }

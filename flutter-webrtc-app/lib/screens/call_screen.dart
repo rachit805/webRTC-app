@@ -6,11 +6,11 @@ class CallScreen extends StatefulWidget {
   final String callerId, calleeId;
   final dynamic offer;
   const CallScreen({
-    super.key,
+    Key? key,
     this.offer,
     required this.callerId,
     required this.calleeId,
-  });
+  }) : super(key: key);
 
   @override
   State<CallScreen> createState() => _CallScreenState();
@@ -33,30 +33,116 @@ class _CallScreenState extends State<CallScreen> {
   RTCPeerConnection? _rtcPeerConnection;
 
   // list of rtcCandidates to be sent over signalling
-  List<RTCIceCandidate> rtcIceCadidates = [];
+  List<RTCIceCandidate> rtcIceCandidates = [];
 
   // media status
   bool isAudioOn = true, isVideoOn = true, isFrontCameraSelected = true;
 
   @override
   void initState() {
+    super.initState();
     // initializing renderers
     _localRTCVideoRenderer.initialize();
     _remoteRTCVideoRenderer.initialize();
 
     // setup Peer Connection
     _setupPeerConnection();
-    super.initState();
+
+    // Listen for "callEnded" event
+    socket!.on("callEnded", (data) {
+      _handleCallEnded();
+    });
+  }
+
+  void _handleCallEnded() {
+    // Clean up resources
+    _localStream?.getTracks().forEach((track) {
+      track.stop();
+    });
+    _rtcPeerConnection?.close();
+
+    // Navigate back
+    Navigator.pop(context);
   }
 
   @override
-  void setState(fn) {
-    if (mounted) {
-      super.setState(fn);
-    }
+  void dispose() {
+    _localRTCVideoRenderer.dispose();
+    _remoteRTCVideoRenderer.dispose();
+    _localStream?.dispose();
+    _rtcPeerConnection?.dispose();
+    super.dispose();
   }
 
-  _setupPeerConnection() async {
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Theme.of(context).colorScheme.background,
+      appBar: AppBar(
+        title: const Text("P2P Call App"),
+      ),
+      body: SafeArea(
+        child: Column(
+          children: [
+            Expanded(
+              child: Stack(
+                children: [
+                  widget.offer == null
+                      ? const Center(child: Text("Remote user Joining"))
+                      : RTCVideoView(
+                          _remoteRTCVideoRenderer,
+                          objectFit:
+                              RTCVideoViewObjectFit.RTCVideoViewObjectFitCover,
+                        ),
+                  Positioned(
+                    right: 20,
+                    bottom: 20,
+                    child: SizedBox(
+                      height: 150,
+                      width: 120,
+                      child: RTCVideoView(
+                        _localRTCVideoRenderer,
+                        mirror: isFrontCameraSelected,
+                        objectFit:
+                            RTCVideoViewObjectFit.RTCVideoViewObjectFitCover,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                children: [
+                  IconButton(
+                    icon: Icon(isAudioOn ? Icons.mic : Icons.mic_off),
+                    onPressed: _toggleMic,
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.call_end),
+                    iconSize: 30,
+                    onPressed: _handleCallEnded,
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.cameraswitch),
+                    onPressed: _switchCamera,
+                  ),
+                  IconButton(
+                    icon: Icon(isVideoOn ? Icons.videocam : Icons.videocam_off),
+                    onPressed: _toggleCamera,
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _setupPeerConnection() async {
     // create peer connection
     _rtcPeerConnection = await createPeerConnection({
       'iceServers': [
@@ -129,7 +215,7 @@ class _CallScreenState extends State<CallScreen> {
     else {
       // listen for local iceCandidate and add it to the list of IceCandidate
       _rtcPeerConnection!.onIceCandidate =
-          (RTCIceCandidate candidate) => rtcIceCadidates.add(candidate);
+          (RTCIceCandidate candidate) => rtcIceCandidates.add(candidate);
 
       // when call is accepted by remote peer
       socket!.on("callAnswered", (data) async {
@@ -142,7 +228,7 @@ class _CallScreenState extends State<CallScreen> {
         );
 
         // send iceCandidate generated to remote peer over signalling
-        for (RTCIceCandidate candidate in rtcIceCadidates) {
+        for (RTCIceCandidate candidate in rtcIceCandidates) {
           socket!.emit("IceCandidate", {
             "calleeId": widget.calleeId,
             "iceCandidate": {
@@ -168,11 +254,31 @@ class _CallScreenState extends State<CallScreen> {
     }
   }
 
-  _leaveCall() {
+  void _leaveCall() {
+    if (widget.offer != null) {
+      socket!.emit('leaveCall', {
+        "calleeId": widget.calleeId,
+      });
+      widget.offer == null;
+    } else {
+      // For outgoing call
+      socket!.emit('leaveCall', {
+        "callerId": widget.callerId,
+      });
+      widget.offer == null;
+    }
+
+    // Clean up resources
+    _localStream?.getTracks().forEach((track) {
+      track.stop();
+    });
+    _rtcPeerConnection?.close();
+    widget.offer == null;
+    // Navigate back
     Navigator.pop(context);
   }
 
-  _toggleMic() {
+  void _toggleMic() {
     // change status
     isAudioOn = !isAudioOn;
     // enable or disable audio track
@@ -182,7 +288,7 @@ class _CallScreenState extends State<CallScreen> {
     setState(() {});
   }
 
-  _toggleCamera() {
+  void _toggleCamera() {
     // change status
     isVideoOn = !isVideoOn;
 
@@ -193,7 +299,7 @@ class _CallScreenState extends State<CallScreen> {
     setState(() {});
   }
 
-  _switchCamera() {
+  void _switchCamera() {
     // change status
     isFrontCameraSelected = !isFrontCameraSelected;
 
@@ -203,77 +309,5 @@ class _CallScreenState extends State<CallScreen> {
       track.switchCamera();
     });
     setState(() {});
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Theme.of(context).colorScheme.background,
-      appBar: AppBar(
-        title: const Text("P2P Call App"),
-      ),
-      body: SafeArea(
-        child: Column(
-          children: [
-            Expanded(
-              child: Stack(children: [
-                RTCVideoView(
-                  _remoteRTCVideoRenderer,
-                  objectFit: RTCVideoViewObjectFit.RTCVideoViewObjectFitCover,
-                ),
-                Positioned(
-                  right: 20,
-                  bottom: 20,
-                  child: SizedBox(
-                    height: 150,
-                    width: 120,
-                    child: RTCVideoView(
-                      _localRTCVideoRenderer,
-                      mirror: isFrontCameraSelected,
-                      objectFit:
-                          RTCVideoViewObjectFit.RTCVideoViewObjectFitCover,
-                    ),
-                  ),
-                )
-              ]),
-            ),
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 12),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
-                children: [
-                  IconButton(
-                    icon: Icon(isAudioOn ? Icons.mic : Icons.mic_off),
-                    onPressed: _toggleMic,
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.call_end),
-                    iconSize: 30,
-                    onPressed: _leaveCall,
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.cameraswitch),
-                    onPressed: _switchCamera,
-                  ),
-                  IconButton(
-                    icon: Icon(isVideoOn ? Icons.videocam : Icons.videocam_off),
-                    onPressed: _toggleCamera,
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  @override
-  void dispose() {
-    _localRTCVideoRenderer.dispose();
-    _remoteRTCVideoRenderer.dispose();
-    _localStream?.dispose();
-    _rtcPeerConnection?.dispose();
-    super.dispose();
   }
 }

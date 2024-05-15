@@ -13,7 +13,8 @@ class VideoCallApp extends StatelessWidget {
   VideoCallApp({super.key});
 
   // signalling server url
-  final String websocketUrl = "WEB_SOCKET_SERVER_URL";
+  final String websocketUrl =
+      "https://2600da43-0860-4239-bf2a-fcda9ee25bb8-00-3uflsqq598ix7.pike.replit.dev/";
 
   // generate callerID of local user
   final String selfCallerID =
@@ -24,13 +25,11 @@ class VideoCallApp extends StatelessWidget {
     // init signalling service
     SignallingService.instance.init(
       websocketUrl: websocketUrl,
-      selfCallerID: selfCallerID,
+      selfCallerID: "123",
     );
 
-    // return material app
     return MaterialApp(
       darkTheme: ThemeData.dark().copyWith(
-        useMaterial3: true,
         colorScheme: const ColorScheme.dark(),
       ),
       themeMode: ThemeMode.dark,

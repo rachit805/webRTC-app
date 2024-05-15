@@ -18,12 +18,11 @@ class _JoinScreenState extends State<JoinScreen> {
   @override
   void initState() {
     super.initState();
-
-    // listen for incoming video call
+    // print(incomingSDPOffer);
     SignallingService.instance.socket!.on("newCall", (data) {
       if (mounted) {
-        // set SDP Offer of incoming call
         setState(() => incomingSDPOffer = data);
+        // print(incomingSDPOffer);
       }
     });
   }
@@ -48,6 +47,8 @@ class _JoinScreenState extends State<JoinScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // print("Offer Map${incomingSDPOffer}");
+
     return Scaffold(
       backgroundColor: Theme.of(context).colorScheme.background,
       appBar: AppBar(
